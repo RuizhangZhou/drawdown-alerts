@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.staging
+
+# State files
+state.json
+cron.log
+
+# Temporary files
+*.tmp
+*.log
+
+# AlertBot config (contains sensitive token)
+alertbot_config.json
+
+# Generated charts
+*.png
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
