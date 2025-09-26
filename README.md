@@ -1,11 +1,10 @@
-# Drawdown Alerts 回撤监控系统
+# Asset Monitor 资产监控系统
 
-自动监控资产回撤并通过Matrix发送提醒的系统。
+自动监控资产回撤与过度上涨，并通过Matrix发送提醒的系统。
 
 ## 🏗️ 文件结构
 ```
-drawdown-alerts/
-├── drawdown_alerts.py    # 兼容旧入口 (调用 asset_monitor.main)
+asset-monitor/
 ├── asset_monitor/        # 模块化包
 │   ├── main.py           # 主流程 orchestrator
 │   ├── config.py         # 资产 & 常量
@@ -66,20 +65,12 @@ MATRIX_ROOM_ID=!your_room_id:server.com
 ```bash
 crontab -e
 # 添加 (每日 03:30 发送日报 + 图表):
-# 30 3 * * * /root/drawdown-alerts/.venv/bin/python /root/drawdown-alerts/drawdown_alerts.py --daily-report --send-charts >> /root/drawdown-alerts/cron.log 2>&1
-
-# 或使用新模块入口（效果相同）：
-# 30 3 * * * /root/drawdown-alerts/.venv/bin/python -m asset_monitor.main --daily-report --send-charts >> /root/drawdown-alerts/cron.log 2>&1
+# 30 3 * * * /root/asset-monitor/.venv/bin/python -m asset_monitor.main --daily-report --send-charts >> /root/asset-monitor/cron.log 2>&1
 ```
 
 ## 🧪 手动测试
 ```bash
 source .venv/bin/activate
-# 旧入口（继续可用）
-python drawdown_alerts.py --dry-run
-python drawdown_alerts.py --daily-report --send-charts
-
-# 推荐新入口
 python -m asset_monitor.main --dry-run
 python -m asset_monitor.main --daily-report --send-charts
 ```
@@ -90,5 +81,5 @@ python -m asset_monitor.main --daily-report --send-charts
 
 ## 📝 注意事项
 - 敏感文件已在`.gitignore`中排除
-- 如需添加更多资产，编辑 `drawdown_alerts.py` 中的 `ASSETS` 配置
+- 如需添加更多资产，编辑 `asset_monitor/config.py` 中的 `ASSETS` 配置
 - 日志文件：`cron.log`
