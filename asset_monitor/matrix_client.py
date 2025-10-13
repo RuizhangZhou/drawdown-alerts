@@ -28,7 +28,7 @@ def matrix_upload_file(homeserver: str, access_token: str, file_path: Path):
         r.raise_for_status()
         return r.json().get('content_uri')
     except Exception as e:
-        print(f"文件上传失败 {file_path.name}: {e}")
+        print(f"File upload failed for {file_path.name}: {e}")
         return None
 
 
@@ -52,5 +52,5 @@ def matrix_send_image(homeserver: str, room_id: str, access_token: str, file_pat
             matrix_send_text(homeserver, room_id, access_token, caption)
         return r.json()
     except Exception as e:
-        print(f"图片发送失败 {file_path.name}: {e}")
+        print(f"Image send failed for {file_path.name}: {e}")
         return None

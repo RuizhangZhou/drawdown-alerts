@@ -1,85 +1,85 @@
-# Asset Monitor 资产监控系统
+# Asset Monitor
 
-自动监控资产回撤与过度上涨，并通过Matrix发送提醒的系统。
+Automated monitoring for asset drawdowns and sharp rallies with Matrix notifications.
 
-## 🏗️ 文件结构
+## 🏗️ Project Layout
 ```
 asset-monitor/
-├── asset_monitor/        # 模块化包
-│   ├── main.py           # 主流程 orchestrator
-│   ├── config.py         # 资产 & 常量
-│   ├── data_sources.py   # 数据抓取
-│   ├── indicators.py     # 指标计算
-│   ├── charts.py         # 图表生成
-│   ├── thresholds.py     # 阈值穿越日期
-│   ├── matrix_client.py  # Matrix 发送
-│   ├── state.py          # 状态读写
-│   └── env_loader.py     # .env 读取
-├── requirements.txt      # Python依赖
-├── README.md            # 说明文档
-├── .gitignore          # Git忽略文件
-├── .env                # Matrix配置 (需要手动创建)
-├── state.json          # 运行状态记录 (自动生成)
-└── cron.log           # Cron执行日志 (自动生成)
+├── asset_monitor/        # modular package
+│   ├── main.py           # main orchestrator
+│   ├── config.py         # asset definitions and constants
+│   ├── data_sources.py   # data fetching
+│   ├── indicators.py     # indicator calculations
+│   ├── charts.py         # chart rendering
+│   ├── thresholds.py     # threshold crossover dates
+│   ├── matrix_client.py  # Matrix helpers
+│   ├── state.py          # state persistence
+│   └── env_loader.py     # .env loader
+├── requirements.txt      # Python dependencies
+├── README.md             # documentation
+├── .gitignore            # Git ignore rules
+├── .env                  # Matrix configuration (create manually)
+├── state.json            # runtime state (auto-generated)
+└── cron.log              # cron execution log (auto-generated)
 ```
 
-## 📊 配置的资产
+## 📊 Configured Assets
 
-### BTC (BTCUSDT) - 60天窗口
-- **回撤阈值**: -10% → +€50，-20% → 再+€50 (合计最多+€150)
-- **涨幅阈值**: +15%/+25% → 减少投资提醒
+### BTC (BTCUSDT) — 60-day window
+- **Drawdown thresholds**: -10% -> +€50, -20% -> an additional +€50 (maximum +€150 this month)
+- **Surge thresholds**: +15%/+25% -> reminder to scale back investments
 
-### Gold (GLD ETF) - 60天窗口
-- **回撤阈值**: -4% → +€50，-8% → 再+€50 (合计最多+€100)
-- **涨幅阈值**: +6%/+12% → 减少投资提醒
+### Gold (GLD ETF) — 60-day window
+- **Drawdown thresholds**: -4% -> +€50, -8% -> an additional +€50 (maximum +€100 this month)
+- **Surge thresholds**: +6%/+12% -> reminder to reduce investments
 
-### S&P500 (SPY ETF) - 90天窗口
-- **回撤阈值**: -5% → +€100，-10% → +€200
-- **涨幅阈值**: +8%/+15% → 暂缓投资提醒
+### S&P500 (SPY ETF) — 90-day window
+- **Drawdown thresholds**: -5% -> +€100, -10% -> +€200
+- **Surge thresholds**: +8%/+15% -> reminder to pause new investments
 
-## 🎯 监控机制
-- **回撤监控**: 相对滚动高点的下跌幅度
-- **涨幅监控**: 相对滚动低点的上涨幅度
-- **穿越提醒**: 只在跨越阈值瞬间触发（避免重复骚扰）
-- **每日简报**: 显示当前状态 + 阈值穿越日期
-- **可视化图表**: 自动生成价格趋势和回撤/涨幅图
-- **状态记录**: 使用state.json防止同一天重复提醒
+## 🎯 Monitoring Mechanics
+- **Drawdown monitoring**: drop versus the rolling high
+- **Surge monitoring**: gain versus the rolling low
+- **Threshold alerts**: trigger only on crossovers to avoid alert fatigue
+- **Daily briefing**: current status plus crossover dates
+- **Charts**: automatically generated price and drawdown/surge plots
+- **State tracking**: persist state.json to avoid duplicate alerts on the same day
 
-## ⚙️ 安装和配置
+## ⚙️ Setup
 
-### 1. 设置环境
+### 1. Create the environment
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. 配置Matrix (.env)
+### 2. Configure Matrix credentials (.env)
 ```bash
 MATRIX_HOMESERVER=https://your.matrix.server
 MATRIX_ACCESS_TOKEN=your_access_token
 MATRIX_ROOM_ID=!your_room_id:server.com
 ```
 
-### 3. 设置定时任务
+### 3. Schedule the cron job
 ```bash
 crontab -e
-# 添加 (每日 03:30 发送日报 + 图表):
+# add (daily 03:30 report + charts):
 # 30 3 * * * /root/asset-monitor/.venv/bin/python -m asset_monitor.main --daily-report --send-charts >> /root/asset-monitor/cron.log 2>&1
 ```
 
-## 🧪 手动测试
+## 🧪 Manual Checks
 ```bash
 source .venv/bin/activate
 python -m asset_monitor.main --dry-run
 python -m asset_monitor.main --daily-report --send-charts
 ```
 
-## 🤖 Matrix机器人
-- 使用AlertBot (`@alertbot:rickandzoey.com`) 发送提醒
-- 可供多个项目共享使用
+## 🤖 Matrix Bot
+- Uses AlertBot (`@alertbot:rickandzoey.com`) for outbound notifications
+- Shared across multiple projects
 
-## 📝 注意事项
-- 敏感文件已在`.gitignore`中排除
-- 如需添加更多资产，编辑 `asset_monitor/config.py` 中的 `ASSETS` 配置
-- 日志文件：`cron.log`
+## 📝 Notes
+- Sensitive files are excluded via `.gitignore`
+- Edit `asset_monitor/config.py` to add more assets
+- Log output: `cron.log`

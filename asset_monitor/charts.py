@@ -34,5 +34,5 @@ def create_asset_chart(asset_name, price_data, window, save_path: Path):
         plt.close()
         return True
     except Exception as e:
-        print(f'图表生成失败 {asset_name}: {e}')
+        print(f'Failed to generate chart for {asset_name}: {e}')
         return False

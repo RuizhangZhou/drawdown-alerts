@@ -33,7 +33,7 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
             else:
                 s = fetch_yf_close(a.get('ticker') or a['symbol'])
         except Exception as e:
-            messages.append(f"[WARN] 获取 {a['name']} 数据失败：{e}")
+            messages.append(f"[WARN] Failed to fetch {a['name']} data: {e}")
             continue
         if len(s) < 2:
             continue
@@ -47,20 +47,20 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
         surge = rolling_low_surge(s, a['window'])
         dd_today = float(dd.iloc[-1]) if len(dd) else 0.0
         surge_today = float(surge.iloc[-1]) if len(surge) else 0.0
-        asset_summary = f"**{a['name']}** ({a['window']}天): 回撤 {dd_today:.1%}, 涨幅 {surge_today:.1%}"
+        asset_summary = f"**{a['name']}** ({a['window']}d): drawdown {dd_today:.1%}, surge {surge_today:.1%}"
         threshold_notes = []
         if 'drawdown_thresholds' in a:
             for thr in a['drawdown_thresholds']:
                 if dd_today <= thr:
                     cross_date = find_threshold_cross_date(dd, thr, 'below')
-                    date_info = f" (穿越: {cross_date})" if cross_date else ''
-                    threshold_notes.append(f"⚠️ 回撤 {thr:.0%}{date_info}")
+                    date_info = f" (crossed: {cross_date})" if cross_date else ''
+                    threshold_notes.append(f"⚠️ Drawdown {thr:.0%}{date_info}")
         if 'surge_thresholds' in a:
             for thr in sorted(a['surge_thresholds'], reverse=True):
                 if surge_today >= thr:
                     cross_date = find_threshold_cross_date(surge, thr, 'above')
-                    date_info = f" (穿越: {cross_date})" if cross_date else ''
-                    threshold_notes.append(f"📈 涨幅 {thr:.0%}{date_info}")
+                    date_info = f" (crossed: {cross_date})" if cross_date else ''
+                    threshold_notes.append(f"📈 Surge {thr:.0%}{date_info}")
                     break
         if threshold_notes:
             asset_summary += '\n    ' + ', '.join(threshold_notes)
@@ -71,9 +71,9 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
                 crossed = (dd_prev > thr) and (dd_today <= thr)
                 key = f"{a['name']}|drawdown|{thr}"
                 if crossed and state.get(key, '') != today.date().isoformat():
-                    txt = (f"【回撤提醒】{a['name']}：相对滚动高点({a['window']}D)回撤 "
-                           f"{dd_today:.2%}（阈值 {thr:.0%}）\n{a['drawdown_rules'][thr]}\n"
-                           f"日期：{today.date().isoformat()}")
+                    txt = (f"[Drawdown Alert] {a['name']}: drawdown from the rolling high ({a['window']}D) is "
+                           f"{dd_today:.2%} (threshold {thr:.0%})\n{a['drawdown_rules'][thr]}\n"
+                           f"Date: {today.date().isoformat()}")
                     messages.append(txt)
                     state[key] = today.date().isoformat()
         if len(surge) >= 2 and 'surge_thresholds' in a:
@@ -82,23 +82,23 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
                 crossed = (surge_prev < thr) and (surge_today >= thr)
                 key = f"{a['name']}|surge|{thr}"
                 if crossed and state.get(key, '') != today.date().isoformat():
-                    txt = (f"【涨幅提醒】{a['name']}：相对滚动低点({a['window']}D)涨幅 "
-                           f"{surge_today:.2%}（阈值 {thr:.0%}）\n{a['surge_rules'][thr]}\n"
-                           f"日期：{today.date().isoformat()}")
+                    txt = (f"[Surge Alert] {a['name']}: surge from the rolling low ({a['window']}D) is "
+                           f"{surge_today:.2%} (threshold {thr:.0%})\n{a['surge_rules'][thr]}\n"
+                           f"Date: {today.date().isoformat()}")
                     messages.append(txt)
                     state[key] = today.date().isoformat()
     if messages:
         final_msg = '\n\n'.join(messages)
-        print('🚨 穿越提醒:')
+        print('🚨 Threshold alerts:')
         print(final_msg)
         if not dry_run:
             matrix_send_text(hs, rid, tok, final_msg)
     if daily_report and daily_summary:
         today_str = datetime.now().strftime('%Y-%m-%d')
-        summary_msg = f"📊 **投资监控日报** ({today_str})\n\n" + "\n\n".join(daily_summary)
-        summary_msg += f"\n\n⏰ 监控时间: {datetime.now().strftime('%H:%M:%S')} UTC"
-        summary_msg += "\n🤖 来自 AlertBot 的每日简报"
-        print('\n📊 每日简报:')
+        summary_msg = f"📊 **Investment Monitoring Daily Report** ({today_str})\n\n" + "\n\n".join(daily_summary)
+        summary_msg += f"\n\n⏰ Monitoring time: {datetime.now().strftime('%H:%M:%S')} UTC"
+        summary_msg += "\n🤖 Daily digest from AlertBot"
+        print('\n📊 Daily digest:')
         print(summary_msg)
         if not dry_run:
             matrix_send_text(hs, rid, tok, summary_msg)
@@ -106,13 +106,13 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
             for a in ASSETS:
                 p = Path(__file__).resolve().parent.parent / f"{a['name'].lower()}_chart.png"
                 if p.exists():
-                    caption = f"{a['name']} {a['window']}D 价格 & 回撤/涨幅图"
+                    caption = f"{a['name']} {a['window']}D price & drawdown/surge chart"
                     try:
                         matrix_send_image(hs, rid, tok, p, caption=caption)
                     except Exception as e:
-                        print(f"[WARN] 图表发送失败 {p.name}: {e}")
+                        print(f"[WARN] Failed to send chart {p.name}: {e}")
     if not messages and not daily_report:
-        print('[Info] 无触发。')
+        print('[Info] No thresholds triggered.')
     save_state(STATE_FILE, state)
 
 
