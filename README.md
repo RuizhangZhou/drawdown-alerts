@@ -41,7 +41,7 @@ asset-monitor/
 - **Drawdown monitoring**: drop versus the rolling high
 - **Surge monitoring**: gain versus the rolling low
 - **Threshold alerts**: trigger only on crossovers to avoid alert fatigue
-- **Daily briefing**: current status plus crossover dates
+- **Weekly briefing**: current status plus crossover dates
 - **Charts**: automatically generated price and drawdown/surge plots
 - **State tracking**: persist state.json to avoid duplicate alerts on the same day
 
@@ -64,8 +64,8 @@ MATRIX_ROOM_ID=!your_room_id:server.com
 ### 3. Schedule the cron job
 ```bash
 crontab -e
-# add (daily 03:30 report + charts):
-# 30 3 * * * /root/asset-monitor/.venv/bin/python -m asset_monitor.main --daily-report --send-charts >> /root/asset-monitor/cron.log 2>&1
+# add (Monday 03:30 UTC report + charts):
+# 30 3 * * 1 /root/asset-monitor/.venv/bin/python -m asset_monitor.main --daily-report --send-charts >> /root/asset-monitor/cron.log 2>&1
 ```
 
 ## 🧪 Manual Checks

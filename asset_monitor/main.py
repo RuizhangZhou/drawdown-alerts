@@ -95,10 +95,10 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
             matrix_send_text(hs, rid, tok, final_msg)
     if daily_report and daily_summary:
         today_str = datetime.now().strftime('%Y-%m-%d')
-        summary_msg = f"📊 **Investment Monitoring Daily Report** ({today_str})\n\n" + "\n\n".join(daily_summary)
+        summary_msg = f"📊 **Investment Monitoring Weekly Report** ({today_str})\n\n" + "\n\n".join(daily_summary)
         summary_msg += f"\n\n⏰ Monitoring time: {datetime.now().strftime('%H:%M:%S')} UTC"
-        summary_msg += "\n🤖 Daily digest from AlertBot"
-        print('\n📊 Daily digest:')
+        summary_msg += "\n🤖 Weekly digest from AlertBot"
+        print('\n📊 Weekly digest:')
         print(summary_msg)
         if not dry_run:
             matrix_send_text(hs, rid, tok, summary_msg)
