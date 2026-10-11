@@ -94,6 +94,10 @@ disabled after 60 days without repository activity. Check Actions if reports sto
 
 Required repository Actions secrets: `MATRIX_HOMESERVER`, `MATRIX_ROOM_ID`,
 `MATRIX_ACCESS_TOKEN`. Never commit `.env`, state, access tokens or generated charts.
+Scheduled delivery also requires repository Variable `INVESTMENT_MONITOR_ENABLED=true`.
+Keep it false until hosted validation succeeds and the old server timer is
+disabled. Manual dispatch remains available for explicit validation. Merging the
+PR alone must not create two scheduled senders.
 Only schedule and manually authorized default-branch runs have notification access;
 this workflow does not run on pull requests. Official actions are SHA-pinned,
 the checkout token is not persisted and permissions are read-only.
