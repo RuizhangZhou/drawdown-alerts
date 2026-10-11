@@ -1,5 +1,7 @@
 import copy
 import os
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -65,6 +67,38 @@ class ReportTests(unittest.TestCase):
         count = self.matrix_send_text.call_count
         run_assets(daily_report=True)
         self.assertEqual(self.matrix_send_text.call_count, count)
+
+    def render_chart(self, name, series, window, path):
+        path.write_bytes(b'test image')
+        return True
+
+    def test_existing_chart_caption_and_checkpoint_are_deduplicated(self):
+        self.store.save.side_effect = lambda state: setattr(self.store.load, 'return_value', copy.deepcopy(state))
+        self.create_asset_chart.side_effect = self.render_chart
+        with tempfile.TemporaryDirectory() as directory, patch('asset_monitor.main.__file__',
+                str(Path(directory) / 'asset_monitor' / 'main.py')):
+            run_assets(daily_report=True, send_charts=True)
+            self.matrix_send_image.assert_called_once()
+            sent = self.matrix_send_image.call_args
+            self.assertEqual(sent.kwargs['caption'], 'BTC 2D price & drawdown/surge chart')
+            self.assertTrue(sent.args[3].exists())
+            self.assertTrue(any(key.startswith('chart|') for key in self.store.load.return_value))
+            run_assets(daily_report=True, send_charts=True)
+            self.matrix_send_image.assert_called_once()
+
+    def test_failed_chart_keeps_checkpoint_unset_and_reuses_transaction(self):
+        self.store.save.side_effect = lambda state: setattr(self.store.load, 'return_value', copy.deepcopy(state))
+        self.create_asset_chart.side_effect = self.render_chart
+        self.matrix_send_image.side_effect = [RuntimeError('ambiguous response'), {}]
+        with tempfile.TemporaryDirectory() as directory, patch('asset_monitor.main.__file__',
+                str(Path(directory) / 'asset_monitor' / 'main.py')):
+            with self.assertRaises(RuntimeError):
+                run_assets(daily_report=True, send_charts=True)
+            self.assertFalse(any(key.startswith('chart|') for key in self.store.load.return_value))
+            first = self.matrix_send_image.call_args.kwargs['txn_id']
+            run_assets(daily_report=True, send_charts=True)
+            self.assertEqual(self.matrix_send_image.call_args.kwargs['txn_id'], first)
+            self.assertTrue(any(key.startswith('chart|') for key in self.store.load.return_value))
 
 
 if __name__ == '__main__':

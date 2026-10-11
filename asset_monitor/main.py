@@ -124,7 +124,7 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
                 if p.exists() and not state.get(chart_key):
                     caption = f"{a['name']} {a['window']}D price & drawdown/surge chart"
                     txn = 'drawdown-chart-' + hashlib.sha256(chart_key.encode()).hexdigest()
-                    matrix_send_image(hs, rid, tok, p, txn_id=txn)
+                    matrix_send_image(hs, rid, tok, p, caption=caption, txn_id=txn)
                     state[chart_key] = True
                     store.save(state)
     if not messages and not daily_report:

@@ -1,4 +1,4 @@
-import time, uuid, requests
+import hashlib, time, uuid, requests
 from pathlib import Path
 from typing import Optional
 
@@ -51,7 +51,9 @@ def matrix_send_image(homeserver: str, room_id: str, access_token: str, file_pat
         if not r.ok:
             raise RuntimeError(f'Matrix image send failed: HTTP {r.status_code}')
         if caption:
-            matrix_send_text(homeserver, room_id, access_token, caption)
+            # A lost caption response must not duplicate its text on chart retry.
+            caption_txn = hashlib.sha256(('caption:' + txn_id).encode()).hexdigest()
+            matrix_send_text(homeserver, room_id, access_token, caption, txn_id=caption_txn)
         return r.json()
     except Exception as e:
         raise RuntimeError(f'Image send failed for {file_path.name}') from e
