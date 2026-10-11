@@ -5,7 +5,8 @@ import pandas as pd
 
 
 def fetch_binance_klines(symbol: str = 'BTCUSDT', interval: str = '1d', limit: int = 400) -> pd.Series:
-    url = 'https://api.binance.com/api/v3/klines'
+    # Official public market-data-only endpoint; no account or trading API.
+    url = 'https://data-api.binance.vision/api/v3/klines'
     params = {'symbol': symbol, 'interval': interval, 'limit': limit}
     r = requests.get(url, params=params, timeout=20)
     r.raise_for_status()
