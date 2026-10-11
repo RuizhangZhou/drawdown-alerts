@@ -1,5 +1,5 @@
-import os, sys, argparse
-from datetime import datetime
+import os, sys, argparse, hashlib, json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
@@ -8,7 +8,7 @@ from .env_loader import load_env
 from .data_sources import fetch_binance_klines, fetch_yf_close
 from .indicators import rolling_high_drawdown, rolling_low_surge
 from .matrix_client import matrix_send_text, matrix_send_image
-from .state import load_state, save_state
+from .state import state_store
 from .charts import create_asset_chart
 from .thresholds import find_threshold_cross_date
 
@@ -22,7 +22,10 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
         print('Missing MATRIX_* env vars', file=sys.stderr)
         sys.exit(2)
 
-    state = load_state(STATE_FILE)
+    store = state_store(STATE_FILE, hs, rid, tok)
+    state = store.load()
+    updates = {}
+    fetch_errors = []
     messages: List[str] = []
     daily_summary: List[str] = []
 
@@ -33,15 +36,19 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
             else:
                 s = fetch_yf_close(a.get('ticker') or a['symbol'])
         except Exception as e:
-            messages.append(f"[WARN] Failed to fetch {a['name']} data: {e}")
+            print(f"[WARN] Failed to fetch {a['name']} data: {type(e).__name__}")
+            fetch_errors.append(a['name'])
             continue
         if len(s) < 2:
+            fetch_errors.append(a['name'])
             continue
         today = s.index[-1]
         chart_path = None
         if daily_report:
             chart_path = Path(__file__).resolve().parent.parent / f"{a['name'].lower()}_chart.png"
             if not create_asset_chart(a['name'], s, a['window'], chart_path):
+                if send_charts:
+                    raise RuntimeError(f"Failed to render {a['name']} chart")
                 chart_path = None
         dd = rolling_high_drawdown(s, a['window'])
         surge = rolling_low_surge(s, a['window'])
@@ -75,7 +82,7 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
                            f"{dd_today:.2%} (threshold {thr:.0%})\n{a['drawdown_rules'][thr]}\n"
                            f"Date: {today.date().isoformat()}")
                     messages.append(txt)
-                    state[key] = today.date().isoformat()
+                    updates[key] = today.date().isoformat()
         if len(surge) >= 2 and 'surge_thresholds' in a:
             surge_prev = float(surge.iloc[-2])
             for thr in sorted(a['surge_thresholds'], reverse=True):
@@ -86,34 +93,42 @@ def run_assets(dry_run=False, daily_report=False, send_charts=False):
                            f"{surge_today:.2%} (threshold {thr:.0%})\n{a['surge_rules'][thr]}\n"
                            f"Date: {today.date().isoformat()}")
                     messages.append(txt)
-                    state[key] = today.date().isoformat()
+                    updates[key] = today.date().isoformat()
+    if fetch_errors:
+        raise RuntimeError('Missing asset data; no incomplete report sent: ' + ', '.join(fetch_errors))
     if messages:
         final_msg = '\n\n'.join(messages)
         print('🚨 Threshold alerts:')
         print(final_msg)
         if not dry_run:
-            matrix_send_text(hs, rid, tok, final_msg)
+            txn = 'drawdown-' + hashlib.sha256(json.dumps(updates, sort_keys=True).encode()).hexdigest()
+            matrix_send_text(hs, rid, tok, final_msg, txn_id=txn)
+            state.update(updates)
+            store.save(state)
     if daily_report and daily_summary:
-        today_str = datetime.now().strftime('%Y-%m-%d')
+        today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         summary_msg = f"📊 **Investment Monitoring Weekly Report** ({today_str})\n\n" + "\n\n".join(daily_summary)
-        summary_msg += f"\n\n⏰ Monitoring time: {datetime.now().strftime('%H:%M:%S')} UTC"
+        summary_msg += f"\n\n⏰ Monitoring time: {datetime.now(timezone.utc).strftime('%H:%M:%S')} UTC"
         summary_msg += "\n🤖 Weekly digest from AlertBot"
         print('\n📊 Weekly digest:')
         print(summary_msg)
-        if not dry_run:
-            matrix_send_text(hs, rid, tok, summary_msg)
+        report_key = 'report|' + today_str
+        if not dry_run and not state.get(report_key):
+            matrix_send_text(hs, rid, tok, summary_msg, txn_id='drawdown-report-' + today_str)
+            state[report_key] = True
+            store.save(state)
         if send_charts and not dry_run:
             for a in ASSETS:
                 p = Path(__file__).resolve().parent.parent / f"{a['name'].lower()}_chart.png"
-                if p.exists():
+                chart_key = 'chart|' + today_str + '|' + a['name']
+                if p.exists() and not state.get(chart_key):
                     caption = f"{a['name']} {a['window']}D price & drawdown/surge chart"
-                    try:
-                        matrix_send_image(hs, rid, tok, p, caption=caption)
-                    except Exception as e:
-                        print(f"[WARN] Failed to send chart {p.name}: {e}")
+                    txn = 'drawdown-chart-' + hashlib.sha256(chart_key.encode()).hexdigest()
+                    matrix_send_image(hs, rid, tok, p, caption=caption, txn_id=txn)
+                    state[chart_key] = True
+                    store.save(state)
     if not messages and not daily_report:
         print('[Info] No thresholds triggered.')
-    save_state(STATE_FILE, state)
 
 
 def main(dry_run=False, daily_report=False, send_charts=False):

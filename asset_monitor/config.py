@@ -1,6 +1,7 @@
 from pathlib import Path
+import os
 
-STATE_FILE = Path(__file__).resolve().parent.parent / "state.json"
+STATE_FILE = Path(os.environ.get('ASSET_STATE_FILE', str(Path(__file__).resolve().parent.parent / "state.json")))
 ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 ASSETS = [

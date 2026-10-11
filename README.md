@@ -83,3 +83,50 @@ python -m asset_monitor.main --daily-report --send-charts
 - Sensitive files are excluded via `.gitignore`
 - Edit `asset_monitor/config.py` to add more assets
 - Log output: `cron.log`
+
+## GitHub Actions deployment (2026-10)
+
+Production runs in `.github/workflows/asset-monitor.yml`, every **Monday 03:30 UTC**
+(Berlin 05:30 CEST / 04:30 CET), preserving the former server schedule. Manual
+dispatch defaults to **dry-run**; uncheck `dry_run` to send a real report.
+Schedule execution can be delayed by GitHub; public scheduled workflows may be
+disabled after 60 days without repository activity. Check Actions if reports stop.
+
+Required repository Actions secrets: `MATRIX_HOMESERVER`, `MATRIX_ROOM_ID`,
+`MATRIX_ACCESS_TOKEN`. Never commit `.env`, state, access tokens or generated charts.
+Scheduled delivery also requires repository Variable `INVESTMENT_MONITOR_ENABLED=true`.
+Keep it false until hosted validation succeeds and the old server timer is
+disabled. Manual dispatch remains available for explicit validation. Merging the
+PR alone must not create two scheduled senders.
+Only schedule and manually authorized default-branch runs have notification access;
+this workflow does not run on pull requests. Official actions are SHA-pinned,
+the checkout token is not persisted and permissions are read-only.
+
+The existing alert state is migrated **once** to the bot user's private Matrix
+room account data (`com.rickandzoey.drawdown-alerts.state.v1`). This is not a room
+message, public repository file, cache or artifact. No new storage credential is
+needed. The workflow concurrency group permits only one writer. **Never run the
+server timer and Actions together**. A missing or corrupt remote state causes
+failure, not a silent reset. Local runs still use `state.json` unless
+`ASSET_STATE_BACKEND=matrix` is set. `ASSET_STATE_FILE` optionally selects the local
+state file for migration:
+
+```bash
+# Run from a trusted environment with the existing MATRIX_* variables loaded.
+ASSET_STATE_FILE=/root/asset-monitor/state.json python -m asset_monitor.migrate_state
+ASSET_STATE_BACKEND=matrix python -m asset_monitor.main --dry-run --daily-report --send-charts
+```
+
+Dry-run does not send notifications or update state. Successful text/chart sends
+are checkpointed individually. Repeated reports on the same UTC day are skipped.
+Stable Matrix transaction IDs reduce duplicates after ambiguous send failures;
+this is not an unlimited cross-system exactly-once guarantee. State API failures,
+missing asset data and chart-send failures make the Actions run fail visibly.
+The official Binance market-data-only endpoint is used for BTC.
+
+Rollback: disable this Actions workflow first; export the Matrix account-data
+`state` object to the local state file, or configure the server service to use
+`ASSET_STATE_BACKEND=matrix`; only then re-enable `asset-monitor.timer`.
+Do not blindly reuse the old local state after weeks of Actions updates.
+
+Tests: `python -m unittest discover -s tests -v`.
